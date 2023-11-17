@@ -292,6 +292,7 @@ class X509Utils {
   /// * [extKeyUsage] = The extended key usage definition
   /// * [cA] = The cA boolean of the basic constraints extension, which indicates whether the certificate is a CA
   /// * [pathLenConstraint] = The pathLenConstraint field of the basic constraints extension. This is ignored if cA is null or false, or if pathLenConstraint is less than 0.
+  /// * [subjectKeyId] = The subject key. This will automatically be generated if cA is set to true.
   /// * [serialNumber] = The serialnumber. If not set the default will be 1.
   /// * [issuer] = The issuer. If null, the issuer will be the subject of the given csr.
   /// * [notBefore] = The Timestamp after when the certificate is valid. If null, this will be [DateTime.now].
@@ -306,6 +307,7 @@ class X509Utils {
     List<ExtendedKeyUsage>? extKeyUsage,
     bool? cA,
     int? pathLenConstraint,
+    Uint8List? subjectKeyId,
     String serialNumber = '1',
     Map<String, String>? issuer,
     DateTime? notBefore,
@@ -496,22 +498,26 @@ class X509Utils {
             .add(ASN1ObjectIdentifier.fromIdentifierString("2.5.29.19"));
         basicConstraintsSequence.add(ASN1Boolean(true));
 
-        var basicConstraintsList = ASN1Sequence();
+        var basicConstraintsInnerSequence = ASN1Sequence();
 
         if (cA) {
-          basicConstraintsList.add(ASN1Boolean(cA));
+          basicConstraintsInnerSequence.add(ASN1Boolean(cA));
         }
 
         // check if CA to allow pathLenConstraint
         if (pathLenConstraint != null && cA && pathLenConstraint >= 0) {
-          basicConstraintsList.add(ASN1Integer.fromtInt(pathLenConstraint));
+          basicConstraintsInnerSequence
+              .add(ASN1Integer.fromtInt(pathLenConstraint));
         }
 
-        basicConstraintsSequence
-            .add(ASN1OctetString(octets: basicConstraintsList.encode()));
+        basicConstraintsSequence.add(
+            ASN1OctetString(octets: basicConstraintsInnerSequence.encode()));
 
         extensionTopSequence.add(basicConstraintsSequence);
       }
+
+      // TODO subject key id
+      if (IterableUtils.isNotNullOrEmpty(subjectKeyId)) {}
 
       var extObj = ASN1Object(tag: 0xA3);
       extObj.valueBytes = extensionTopSequence.encode();
